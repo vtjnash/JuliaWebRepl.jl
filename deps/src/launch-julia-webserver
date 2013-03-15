@@ -1,0 +1,13 @@
+#!/bin/sh
+#when installed, JULIA_HOME and THIS_SCRIPT will be exported by the previous line
+cd "$THIS_SCRIPT"/..
+test -x sbin/nginx || { echo "Nginx not found in $THIS_SCRIPT/sbin/nginx" && exit 0; }
+
+echo "Connect to http://localhost:2000/ for the web REPL."
+./sbin/nginx -c etc/nginx.conf &
+
+[ x$(uname) = xDarwin ] && (sleep 1 && open http://localhost:2000/) &
+./bin/julia-release-webserver -p 2001 ${JULIA_HOME}/julia-release-basic
+#gdb --args $JULIA_HOME/julia-debug-webserver -p 2001
+kill `cat logs/nginx.pid`
+
