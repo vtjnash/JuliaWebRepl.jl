@@ -109,15 +109,17 @@ s |= @build_steps begin
     end
 end
 
-steps  = MakeTargets(ASCIIString[
-    "-Csrc", "julia-release",
-    "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
-    "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
-steps |= FileRule("usr/bin/julia-release-webserver",`cp src/julia-release-webserver usr/bin`)
-steps |= MakeTargets(ASCIIString[
-    "-Csrc", "jl_message_types",
-    "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
-    "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
+steps  = @build_steps begin
+    MakeTargets(ASCIIString[
+        "-Csrc", "julia-release",
+        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
+        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
+    FileRule("usr/bin/julia-release-webserver",`cp src/julia-release-webserver usr/bin`)
+    MakeTargets(ASCIIString[
+        "-Csrc", "jl_message_types",
+        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
+        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
+end
 
 if OS_NAME == :Windows
     s |= @build_steps begin
