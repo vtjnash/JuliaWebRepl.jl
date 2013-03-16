@@ -118,7 +118,7 @@ end
 steps  = @build_steps begin
     ChangeDirectory(depsdir)
     MakeTargets(ASCIIString[
-        "-Csrc", "julia-release", OS_NAME==:Windows?"OS=WINNT":"",
+        "-Csrc", "julia-release", OS_NAME==:Windows?"OS=WINNT":"IGNOREME=1",
         """CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) \\
                 -I$(joinpath(this_julia,"..","include")) \\
                 -I$(joinpath(this_julia,"..","..","src")) \\
@@ -129,7 +129,7 @@ steps  = @build_steps begin
     #FileRule("usr/bin/julia-release-webserver$exe",
     #   `cp src/julia-release-webserver$exe usr/bin`)
     MakeTargets(ASCIIString[
-        "-Csrc", "jl_message_types", OS_NAME==:Windows?"OS=WINNT":"",
+        "-Csrc", "jl_message_types", OS_NAME==:Windows?"OS=WINNT":"IGNOREME=1",
         "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
         "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])
     `cp usr/bin/webrepl_msgtypes_h.jl ../src/`
