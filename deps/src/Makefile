@@ -40,12 +40,9 @@ julia-release-webserver$(EXE): $(WEBSERVER_SRCS)
 julia-debug-webserver$(EXE): $(WEBSERVER_DSRCS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $(LDFLAGS) $(WEBSERVER_DSRCS) $(LIBS)
 
-../../src/webrepl_msgtypes_h.jl: message_types.h
-	$(CPP) $(CPPFLAGS) -Djl_output $< > $@
 ../usr/bin/webrepl_msgtypes_h.jl: message_types.h
-	# duplicated, useful for creating binaries
 	$(CPP) $(CPPFLAGS) -Djl_output $< > $@
-jl_message_types: ../../src/webrepl_msgtypes_h.jl ../usr/bin/webrepl_msgtypes_h.jl
+jl_message_types: ../usr/bin/webrepl_msgtypes_h.jl
 
 clean:
 	rm -f *.o *.do julia-*-webserver ../../src/webrepl_msgtypes_h.jl

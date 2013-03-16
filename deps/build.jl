@@ -1,11 +1,13 @@
 require("BinDeps")
 
-VER="0.0.0"
+msize = sizeof(Int)==4 ? "-m32" : "-m64"
+VER="0.0.0$msize"
 NGINX_VER="1.2.7"
 this_julia = JULIA_HOME #Note: this will get hardcoded into the launch script
 
 s = @build_steps begin
-	c=Choices(Choice[Choice(:skip,"Skip Installation - Nginx must be installed manually",nothing)])
+    c=Choices(Choice[
+        Choice(:skip,"Skip Installation - Nginx must be installed manually",nothing),])
 end
 
 ## Prebuilt Binaries
@@ -17,20 +19,23 @@ JL_LIBDIR = "lib"
 Base.c_free(sysimgdir)
 JL_PRIVATE_LIBDIR = abspath(JL_PRIVATE_LIBDIR)
 
+exe = OS_NAME==:Windows ? ".exe" : ""
 if OS_NAME == :Windows
-## Install from binaries 
-	local_file = joinpath(joinpath(depsdir,"downloads"),"nginx-$NGINX_VER.zip")
-	push!(c,Choice(:binary,"Download nginx",@build_steps begin
-				ChangeDirectory(depsdir)
-				FileDownloader("http://nginx.org/download/nginx-$NGINX_VER.zip",local_file)
-				FileUnpacker(local_file,joinpath(depsdir,"usr/nginx-$NGINX_VER"))
-				`rm -rf usr/sbin`
-				`mv usr/nginx-$NGINX_VER usr/sbin`
-			end))
+    ## Install from binaries
+    local_file = joinpath(joinpath(depsdir,"downloads"),"nginx-$NGINX_VER.zip")
+    push!(c,Choice(:binary,"Download nginx",
+        @build_steps begin
+            ChangeDirectory(depsdir)
+            FileDownloader("http://nginx.org/download/nginx-$NGINX_VER.zip",local_file)
+            FileUnpacker(local_file,joinpath(depsdir,"usr/nginx-$NGINX_VER"))
+            CreateDirectory(joinpath(prefix,"sbin"))
+            `cp -a usr/nginx-$NGINX_VER/nginx$exe usr/sbin/nginx$exe`
+            `cp -a usr/nginx-$NGINX_VER/* usr/`
+        end))
 else
-## Install from source
+    ## Install from source
     steps  = @build_steps begin ChangeDirectory(depsdir) end
-	#libdir=joinpath(prefix,"lib")
+    #libdir=joinpath(prefix,"lib")
     #steps |= @build_steps begin CreateDirectory(libdir) end
     #steps |= @build_steps function()
     #    println("Copying libpcre from julia installation")
@@ -62,8 +67,8 @@ else
             close(f)
         end
     end
-	steps |= @build_steps begin
-		AutotoolsDependency(
+        steps |= @build_steps begin
+                AutotoolsDependency(
             joinpath(depsdir,"src",directory), #srcdir
             ".", #prefix
             joinpath(depsdir,"src",directory), #builddir
@@ -75,8 +80,8 @@ else
             "objs/nginx", #library name
             "$prefix/sbin/nginx", #install name
             "") #config.status directory
-	    end
-	push!(c,Choice(:source,"Install Nginx dependency from source",steps))
+            end
+        push!(c,Choice(:source,"Install Nginx dependency from source",steps))
 end
 
 filename = "launch-julia-webserver"
@@ -109,32 +114,40 @@ s |= @build_steps begin
         @unix_only readall(`chmod a+x $(joinpath("usr","bin",filename))`)
     end
 end
-msize = sizeof(Int)==4 ? "-m32" : "-m64"
-exe = OS_NAME==:Windows ? ".exe" : ""
+
 steps  = @build_steps begin
+    ChangeDirectory(depsdir)
     MakeTargets(ASCIIString[
         "-Csrc", "julia-release", OS_NAME==:Windows?"OS=WINNT":"",
-        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
-        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])
-	`cp src/julia-release-webserver$exe usr/bin`
-    #FileRule("usr/bin/julia-release-webserver$exe",`cp src/julia-release-webserver$exe usr/bin`)
+        """CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) \\
+                -I$(joinpath(this_julia,"..","include")) \\
+                -I$(joinpath(this_julia,"..","..","src")) \\
+                $msize""",
+        """LDFLAGS=-L$(joinpath(this_julia,"..","lib")) \\
+                -L$(JL_PRIVATE_LIBDIR) $msize"""])
+        `cp src/julia-release-webserver$exe usr/bin`
+    #FileRule("usr/bin/julia-release-webserver$exe",
+    #   `cp src/julia-release-webserver$exe usr/bin`)
     MakeTargets(ASCIIString[
         "-Csrc", "jl_message_types", OS_NAME==:Windows?"OS=WINNT":"",
         "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
         "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])
+    `cp usr/bin/webrepl_msgtypes_h.jl ../src/`
 end
 
 if OS_NAME == :Windows
     s |= @build_steps begin
-	    c=Choices(Choice[Choice(:source,"Install Julia-Webserver dependency from source",steps),])
+        c=Choices(Choice[Choice(:source,"Install Julia-Webserver dependency from source",steps),])
     end
     local_file = joinpath(joinpath(depsdir,"downloads"),"julia_webserver-$VER.zip")
-	push!(c,Choice(:binary,"Download julia_webserver binaries",@build_steps begin
-				ChangeDirectory(depsdir)
-				FileDownloader("http://julialang.googlecode.com/files/julia_webserver-$VER.zip",local_file)
-				FileUnpacker(local_file,joinpath(depsdir,"usr/bin"))
-                `mv usr/bin/webrepl_msgtypes_h.jl ../src/`
-			end))
+    destf = joinpath(prefix,"bin","julia-release-webserver$exe")
+    push!(c,Choice(:binary,"Download julia_webserver binaries",
+        @build_steps begin
+            ChangeDirectory(depsdir)
+            FileDownloader("http://julialang.googlecode.com/files/julia_webserver-$VER.zip",local_file)
+            FileRule(destf,unpack_cmd(local_file,dirname(destf)))
+            `cp usr/bin/webrepl_msgtypes_h.jl ../src/`
+        end))
     homedir = ENV["USERPROFILE"]
 else
     s |= steps
@@ -142,7 +155,7 @@ else
 end
 
 s |= @build_steps begin
-	c=Choices(Choice[
+    c=Choices(Choice[
         Choice(:skip,"Skip link creation -- launch from ~/.julia/deps/usr/bin/launch-julia-webserver",nothing),
         Choice(:home,"Create symbolic link in home directory -- launch from ~/launch-julia-webserver",
             @build_steps begin
