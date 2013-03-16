@@ -688,7 +688,7 @@ string get_session(string user_name, string session_name) {
 #if 0
     char *argv[5] = {"gdbserver","localhost:2222","./julia-debug-readline", "../share/julia/extras/julia_web_base.jl", NULL};
 #else
-    char arg0[strlen_julia_release_readline];
+    char *arg0 = (char*)alloca(strlen_julia_release_readline+1);
     strcpy(arg0,julia_release_readline);
     char arg1[]="--no-history";
     char arg2[]="../../src/julia_web_base.jl";
@@ -771,7 +771,7 @@ void requestDone(uv_handle_t *handle)
 void close_stream(uv_shutdown_t* req, int status)
 {
     uv_close((uv_handle_t*)req->handle,&requestDone);
-	delete req;
+    delete req;
 #ifdef CPP_DEBUG_TRACE
     cout << "Closing connection "
 #ifdef __WIN32__
@@ -1091,8 +1091,13 @@ int main(int argc, char* argv[])
     int port_num = 1441;
     for (int i = 1; i < argc; i++)
     {
-        if (string(argv[i]) == "-p")
-            port_num = from_string<int>(argv[++i]);
+        if (strcmp(argv[i],"-p")==0) {
+            if (i==argc) {
+                fprintf(stderr,"missing argument for -p");
+                exit(1);
+            }
+            port_num = atoi(argv[++i]);
+        }
         else if (julia_release_readline == NULL) {
             julia_release_readline = argv[i];
             strlen_julia_release_readline = strlen(julia_release_readline);
@@ -1106,7 +1111,11 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Missing argument for julia path.\n");
         exit(1);
     }
-
+    if (port_num <= 0) {
+        fprintf(stderr,"port number must be positive integer");
+        exit(1);
+    }
+    printf("Julia: %s\n", julia_release_readline);
 
     // seed the random number generator for generating julia_session tokens
     srand(time(0));

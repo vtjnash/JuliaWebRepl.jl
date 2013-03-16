@@ -23,7 +23,9 @@ if OS_NAME == :Windows
 	push!(c,Choice(:binary,"Download nginx",@build_steps begin
 				ChangeDirectory(depsdir)
 				FileDownloader("http://nginx.org/download/nginx-$NGINX_VER.zip",local_file)
-				FileUnpacker(local_file,joinpath(depsdir,"usr/sbin"))
+				FileUnpacker(local_file,joinpath(depsdir,"usr/nginx-$NGINX_VER"))
+				`rm -rf usr/sbin`
+				`mv usr/nginx-$NGINX_VER usr/sbin`
 			end))
 else
 ## Install from source
@@ -85,8 +87,7 @@ s |= @build_steps begin
     ChangeDirectory(depsdir)
     CreateDirectory(joinpath(prefix,"etc"))
     CreateDirectory(joinpath(prefix,"bin"))
-    FileRule(joinpath("usr","etc","nginx.conf"),`cp $(joinpath(depsdir,"src","nginx.conf")) $(joinpath(prefix,"etc"))`)
-    @windows_only FileRule(joinpath("bin","prepare-julia-env.bat"),`cp $(joinpath(this_julia,"prepare-julia-env.bat")) bin`)
+    FileRule(joinpath("usr","etc","nginx.conf"),`cp $(joinpath(depsdir,"src/nginx.conf")) $(joinpath(prefix,"etc"))`)
     function()
         fin = fout = nothing
         try
@@ -94,8 +95,8 @@ s |= @build_steps begin
             fout = open(joinpath("usr","bin",filename),"w")
             write(fout, readline(fin))
             if OS_NAME == :Windows
-                write(fout, "export JULIA_HOME=$this_julia\r\n")
-                write(fout, "export THIS_SCRIPT=$(joinpath(prefix,"bin"))\\\r\n")
+                write(fout, "set JULIA_HOME=$this_julia\r\n")
+                write(fout, "set THIS_SCRIPT=$(joinpath(prefix,"bin"))\\\r\n")
             else
                 write(fout, "export JULIA_HOME=$this_julia\n")
                 write(fout, "export THIS_SCRIPT=$(joinpath(prefix,"bin"))\n")
@@ -108,17 +109,19 @@ s |= @build_steps begin
         @unix_only readall(`chmod a+x $(joinpath("usr","bin",filename))`)
     end
 end
-
+msize = sizeof(Int)==4 ? "-m32" : "-m64"
+exe = OS_NAME==:Windows ? ".exe" : ""
 steps  = @build_steps begin
     MakeTargets(ASCIIString[
-        "-Csrc", "julia-release",
-        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
-        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
-    FileRule("usr/bin/julia-release-webserver",`cp src/julia-release-webserver usr/bin`)
+        "-Csrc", "julia-release", OS_NAME==:Windows?"OS=WINNT":"",
+        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
+        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])
+	`cp src/julia-release-webserver$exe usr/bin`
+    #FileRule("usr/bin/julia-release-webserver$exe",`cp src/julia-release-webserver$exe usr/bin`)
     MakeTargets(ASCIIString[
-        "-Csrc", "jl_message_types",
-        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src"))",
-        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR)"])
+        "-Csrc", "jl_message_types", OS_NAME==:Windows?"OS=WINNT":"",
+        "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
+        "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])
 end
 
 if OS_NAME == :Windows
@@ -143,15 +146,15 @@ s |= @build_steps begin
         Choice(:skip,"Skip link creation -- launch from ~/.julia/deps/usr/bin/launch-julia-webserver",nothing),
         Choice(:home,"Create symbolic link in home directory -- launch from ~/launch-julia-webserver",
             @build_steps begin
-               `ln -fs $(joinpath(prefix,"bin",filename)) $(homedir)`
+               `ln -fs $(joinpath(prefix,"bin",filename)) $(joinpath(homedir,filename))`
             end),
         Choice(:desktop,"Create symbolic link on Desktop -- launch from ~/Desktop/launch-julia-webserver",
             @build_steps begin
-               `ln -fs $(joinpath(prefix,"bin",filename)) $(joinpath(homedir,"Desktop"))`
+               `ln -fs $(joinpath(prefix,"bin",filename)) $(joinpath(homedir,"Desktop",filename))`
             end),
         Choice(:julia,"Create symbolic link in JULIA_HOME directory -- launch from $(JULIA_HOME)/launch-julia-webserver",
             @build_steps begin
-               `ln -fs $(joinpath(prefix,"bin",filename)) $(JULIA_HOME)`
+               `ln -fs $(joinpath(prefix,"bin",filename)) $(joinpath(JULIA_HOME,filename))`
             end),
         ])
 end
