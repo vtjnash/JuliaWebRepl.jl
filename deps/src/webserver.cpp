@@ -10,12 +10,13 @@
 #include <assert.h>
 #include <stdio.h>
 #include <errno.h>
-#include <malloc.h>
 #include "server.h"
 #include "json.h"
 #include "message_types.h"
 #ifndef __WIN32__
 #include <sys/wait.h>
+#else
+#include <malloc.h>
 #endif
 
 extern char **environ; //only unistd.h post- POSIX 2008
