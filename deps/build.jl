@@ -1,4 +1,4 @@
-require("BinDeps")
+using BinDeps
 
 msize = sizeof(Int)==4 ? "-m32" : "-m64"
 VER="0.0.0$msize"
@@ -58,7 +58,7 @@ else
 
     directory = "nginx-$NGINX_VER"
     steps |= @build_steps begin
-        prepare_src("http://nginx.org/download/nginx-$NGINX_VER.tar.gz", "nginx-$NGINX_VER.tar.gz", directory)
+        prepare_src(depsdir, "http://nginx.org/download/nginx-$NGINX_VER.tar.gz", "nginx-$NGINX_VER.tar.gz", directory)
         function()
             println("Patching nginx")
             f = open("src/$directory/configure","a")
@@ -68,7 +68,7 @@ else
         end
     end
         steps |= @build_steps begin
-                AutotoolsDependency(
+                BinDeps.AutotoolsDependency(
             joinpath(depsdir,"src",directory), #srcdir
             ".", #prefix
             joinpath(depsdir,"src",directory), #builddir
@@ -117,7 +117,7 @@ end
 
 steps  = @build_steps begin
     ChangeDirectory(depsdir)
-    MakeTargets(ASCIIString[
+    BinDeps.MakeTargets(ASCIIString[
         "-Csrc", "julia-release", OS_NAME==:Windows?"OS=WINNT":"IGNOREME=1",
         """CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) \\
                 -I$(joinpath(this_julia,"..","include")) \\
@@ -128,7 +128,7 @@ steps  = @build_steps begin
         `cp src/julia-release-webserver$exe usr/bin`
     #FileRule("usr/bin/julia-release-webserver$exe",
     #   `cp src/julia-release-webserver$exe usr/bin`)
-    MakeTargets(ASCIIString[
+    BinDeps.MakeTargets(ASCIIString[
         "-Csrc", "jl_message_types", OS_NAME==:Windows?"OS=WINNT":"IGNOREME=1",
         "CPPFLAGS=-I$(joinpath(this_julia,"..","include","julia")) -I$(joinpath(this_julia,"..","include")) -I$(joinpath(this_julia,"..","..","src")) $msize",
         "LDFLAGS=-L$(joinpath(this_julia,"..","lib")) -L$(JL_PRIVATE_LIBDIR) $msize"])

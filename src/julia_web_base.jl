@@ -173,7 +173,7 @@ function __socket_callback(fd)
 end
 
 # event handler for socket input
-enq_work(@task while true __socket_callback(__io) end)
+@async while true __socket_callback(__io) end
 
 web_show(user_id, ans) =
     __Message(__MSG_OUTPUT_EVAL_RESULT, {user_id, sprint(repl_show, ans)})
